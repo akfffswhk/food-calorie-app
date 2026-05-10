@@ -1,0 +1,115 @@
+version: '3.8'
+
+services:
+  # MongoDB for User Credentials
+  mongodb-users:
+    image: mongo:7
+    container_name: food-calorie-mongodb-users
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    environment:
+      MONGO_INITDB_DATABASE: food_users
+      MONGO_INITDB_ROOT_USERNAME: admin
+      MONGO_INITDB_ROOT_PASSWORD: admin_password
+    volumes:
+      - mongodb_users_data:/data/db
+    networks:
+      - food-calorie-network
+
+  # MongoDB for History and Records
+  mongodb-records:
+    image: mongo:7
+    container_name: food-calorie-mongodb-records
+    restart: unless-stopped
+    ports:
+      - "27018:27017"
+    environment:
+      MONGO_INITDB_DATABASE: food_records
+      MONGO_INITDB_ROOT_USERNAME: admin
+      MONGO_INITDB_ROOT_PASSWORD: admin_password
+    volumes:
+      - mongodb_records_data:/data/db
+    networks:
+      - food-calorie-network
+
+  # YOLO Food Detection Service
+  yolo:
+    build:
+      context: ./yolo
+      dockerfile: Dockerfile
+    container_name: food-calorie-yolo
+    restart: unless-stopped
+    ports:
+      - "8001:8001"
+    environment:
+      YOLO_CONFIDENCE: "0.25"
+      YOLO_TIMEOUT: "30"
+    volumes:
+      - yolo_models:/app/models
+    networks:
+      - food-calorie-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8001/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+
+  # FastAPI Backend
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: food-calorie-backend
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      MONGODB_USERS_URI: mongodb://admin:admin_password@mongodb-users:27017
+      MONGODB_USERS_DB_NAME: food_users
+      MONGODB_RECORDS_URI: mongodb://admin:admin_password@mongodb-records:27017
+      MONGODB_RECORDS_DB_NAME: food_records
+      YOLO_HOST: yolo
+      YOLO_PORT: "8001"
+      YOLO_TIMEOUT: "30"
+      GEMMA_HOST: host.docker.internal
+      GEMMA_PORT: "12434"
+      GEMMA_MODEL: docker.io/ai/gemma4:26B
+      GEMMA_TIMEOUT: "60"
+      USDA_API_KEY: ${USDA_API_KEY:-}
+      CONFIDENCE_THRESHOLD: "0.3"
+      OFFLINE_MODE: ${OFFLINE_MODE:-false}
+      NUTRITION_CACHE_DURATION: "3600"
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY:-your-secret-key-change-in-production}
+      JWT_ALGORITHM: HS256
+      JWT_EXPIRATION_HOURS: "24"
+      API_HOST: 0.0.0.0
+      API_PORT: "8000"
+      CORS_ORIGINS: "*"
+    volumes:
+      - ./app:/app/app
+      - ./logs:/app/logs
+    depends_on:
+      - mongodb-users
+      - mongodb-records
+      - yolo
+    networks:
+      - food-calorie-network
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+volumes:
+  mongodb_users_data:
+  mongodb_records_data:
+  yolo_models:
+
+networks:
+  food-calorie-network:
+    driver: bridge

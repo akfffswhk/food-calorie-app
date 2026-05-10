@@ -1,0 +1,206 @@
+import 'dart:io';
+import 'dart:convert';
+import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:provider/provider.dart';
+import 'package:food_calorie_app/providers/analysis_provider.dart';
+import 'package:food_calorie_app/providers/history_provider.dart';
+import 'package:food_calorie_app/theme/app_theme.dart';
+import 'package:food_calorie_app/widgets/analysis_result_card.dart';
+import 'package:food_calorie_app/widgets/meal_type_selector.dart';
+
+class ScanScreen extends StatefulWidget {
+  const ScanScreen({super.key});
+
+  @override
+  State<ScanScreen> createState() => _ScanScreenState();
+}
+
+class _ScanScreenState extends State<ScanScreen> {
+  final ImagePicker _picker = ImagePicker();
+  File? _selectedImage;
+  String _mealType = 'snack';
+  bool _isAnalyzing = false;
+
+  Future<void> _pickImage(ImageSource source) async {
+    final XFile? image = await _picker.pickImage(
+      source: source,
+      imageQuality: 85,
+    );
+
+    if (image != null) {
+      setState(() {
+        _selectedImage = File(image.path);
+      });
+    }
+  }
+
+  Future<void> _analyzeImage() async {
+    if (_selectedImage == null) return;
+
+    setState(() => _isAnalyzing = true);
+
+    final analysisProvider = context.read<AnalysisProvider>();
+    final historyProvider = context.read<HistoryProvider>();
+
+    try {
+      // Read image and convert to base64
+      final bytes = await _selectedImage!.readAsBytes();
+      final base64Image = base64Encode(bytes);
+
+      // Analyze
+      final success = await analysisProvider.analyzeImageBase64(base64Image);
+
+      if (success && analysisProvider.currentResult != null) {
+        // Add to history
+        final result = analysisProvider.currentResult!;
+        await historyProvider.addEntry(
+          HistoryEntry(
+            id: DateTime.now().millisecondsSinceEpoch.toString(),
+            createdAt: DateTime.now(),
+            mealType: _mealType,
+            calories: result.nutrition.calories,
+            macros: result.nutrition,
+            items: result.items,
+            source: result.source,
+          ),
+        );
+
+        if (mounted) {
+          // Show result
+          showDialog(
+            context: context,
+            builder: (context) => AnalysisResultCard(
+              result: result,
+              onSave: () {
+                Navigator.pop(context);
+                Navigator.pop(context);
+              },
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Analysis failed: $e')),
+        );
+      }
+    } finally {
+      setState(() => _isAnalyzing = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Scan Food'),
+      ),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // Image Preview
+            Container(
+              height: 300,
+              decoration: BoxDecoration(
+                color: Colors.grey[200],
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: _selectedImage != null
+                  ? ClipRRect(
+                      borderRadius: BorderRadius.circular(16),
+                      child: Image.file(
+                        _selectedImage!,
+                        fit: BoxFit.cover,
+                      ),
+                    )
+                  : Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.camera_alt,
+                            size: 64,
+                            color: Colors.grey[400],
+                          ),
+                          const SizedBox(height: 16),
+                          Text(
+                            'No image selected',
+                            style: TextStyle(
+                              color: Colors.grey[600],
+                              fontSize: 16,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+            ),
+            const SizedBox(height: 24),
+
+            // Image Picker Buttons
+            Row(
+              children: [
+                Expanded(
+                  child: ElevatedButton.icon(
+                    onPressed: () => _pickImage(ImageSource.camera),
+                    icon: const Icon(Icons.camera_alt),
+                    label: const Text('Camera'),
+                    style: ElevatedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: () => _pickImage(ImageSource.gallery),
+                    icon: const Icon(Icons.photo_library),
+                    label: const Text('Gallery'),
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 24),
+
+            // Meal Type Selector
+            MealTypeSelector(
+              selectedType: _mealType,
+              onTypeChanged: (type) => setState(() => _mealType = type),
+            ),
+            const SizedBox(height: 24),
+
+            // Analyze Button
+            ElevatedButton(
+              onPressed: _selectedImage != null && !_isAnalyzing
+                  ? _analyzeImage
+                  : null,
+              style: ElevatedButton.styleFrom(
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                backgroundColor: AppTheme.primaryColor,
+              ),
+              child: _isAnalyzing
+                  ? const SizedBox(
+                      height: 20,
+                      width: 20,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
+                    )
+                  : const Text(
+                      'Analyze Food',
+                      style: TextStyle(fontSize: 16),
+                    ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
