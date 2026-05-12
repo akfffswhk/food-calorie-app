@@ -1,0 +1,114 @@
+name: Version Bump
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+  workflow_dispatch:
+    inputs:
+      version_type:
+        description: 'Version bump type'
+        required: true
+        default: 'patch'
+        type: choice
+        options:
+          - major
+          - minor
+          - patch
+          - build
+
+jobs:
+  bump-version:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+
+      - name: Get current version
+        id: version
+        run: |
+          VERSION=$(grep "^version:" frontend/pubspec.yaml | sed 's/version: //' | sed 's/+.*//')
+          BUILD=$(grep "^version:" frontend/pubspec.yaml | sed 's/.*+//' || echo "1")
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "build=$BUILD" >> $GITHUB_OUTPUT
+          echo "Current version: $VERSION+$BUILD"
+
+      - name: Bump version
+        id: bump
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          BUILD="${{ steps.version.outputs.build }}"
+
+          if [ "${{ github.event.inputs.version_type }}" != "" ]; then
+            TYPE="${{ github.event.inputs.version_type }}"
+          else
+            # Auto-detect version type based on commit messages
+            if git log --format=%s -1 | grep -q "^feat:"; then
+              TYPE="minor"
+            elif git log --format=%s -1 | grep -q "^fix:"; then
+              TYPE="patch"
+            else
+              TYPE="build"
+            fi
+          fi
+
+          echo "Bumping type: $TYPE"
+
+          IFS='.' read -r MAJOR MINOR PATCH <<< "$VERSION"
+
+          case $TYPE in
+            major)
+              MAJOR=$((MAJOR + 1))
+              MINOR=0
+              PATCH=0
+              BUILD=1
+              ;;
+            minor)
+              MINOR=$((MINOR + 1))
+              PATCH=0
+              BUILD=1
+              ;;
+            patch)
+              PATCH=$((PATCH + 1))
+              BUILD=$((BUILD + 1))
+              ;;
+            build)
+              BUILD=$((BUILD + 1))
+              ;;
+          esac
+
+          NEW_VERSION="$MAJOR.$MINOR.$PATCH+$BUILD"
+          echo "new_version=$NEW_VERSION" >> $GITHUB_OUTPUT
+          echo "version_type=$TYPE" >> $GITHUB_OUTPUT
+          echo "New version: $NEW_VERSION"
+
+      - name: Update version files
+        run: |
+          NEW_VERSION="${{ steps.bump.outputs.new_version }}"
+
+          # Update pubspec.yaml
+          sed -i "s/^version: .*/version: $NEW_VERSION/" frontend/pubspec.yaml
+
+          # Update app_version.dart
+          IFS='.' read -r MAJOR MINOR PATCH BUILD <<< "$NEW_VERSION"
+          sed -i "s/static const String version = '.*';/static const String version = '$MAJOR.$MINOR.$PATCH';/" frontend/lib/utils/app_version.dart
+          sed -i "s/static const int buildNumber = .*/static const int buildNumber = $BUILD;/" frontend/lib/utils/app_version.dart
+
+      - name: Commit version bump
+        run: |
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          git add frontend/pubspec.yaml frontend/lib/utils/app_version.dart
+          git commit -m "chore: bump version to ${{ steps.bump.outputs.new_version }}"
+
+      - name: Push changes
+        run: |
+          git push

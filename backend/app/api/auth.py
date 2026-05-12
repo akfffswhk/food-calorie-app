@@ -236,30 +236,51 @@ async def get_current_user_info(current_user: dict = Depends(get_current_user)):
 
 
 @router.post("/refresh")
-async def refresh_token(current_user: dict = Depends(get_current_user)):
+async def refresh_token(refresh_token: str):
     """
     Refresh the access token
 
     Returns a new access token for the authenticated user
+
+    - **refresh_token**: The refresh token from the initial login
     """
-    users_collection = get_users_collection()
+    from app.auth import decode_access_token
 
-    user = await users_collection.find_one({"_id": ObjectId(current_user["user_id"])})
-    if not user:
+    try:
+        # Decode the refresh token (it should contain user info)
+        token_data = decode_access_token(refresh_token)
+        user_id = token_data.get("sub")
+
+        if not user_id:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid refresh token"
+            )
+
+        users_collection = get_users_collection()
+
+        user = await users_collection.find_one({"_id": ObjectId(user_id)})
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="User not found"
+            )
+
+        # Create new access token
+        token_data = {
+            "sub": str(user["_id"]),
+            "email": user["email"],
+            "username": user.get("username")
+        }
+        access_token = create_access_token(token_data)
+
+        return {
+            "access_token": access_token,
+            "refresh_token": refresh_token,  # Return the same refresh token
+            "token_type": "bearer"
+        }
+    except Exception as e:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="User not found"
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or expired refresh token"
         )
-
-    # Create new access token
-    token_data = {
-        "sub": str(user["_id"]),
-        "email": user["email"],
-        "username": user.get("username")
-    }
-    access_token = create_access_token(token_data)
-
-    return {
-        "access_token": access_token,
-        "token_type": "bearer"
-    }

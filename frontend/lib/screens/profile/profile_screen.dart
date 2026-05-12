@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:food_calorie_app/providers/auth_provider.dart';
 import 'package:food_calorie_app/providers/history_provider.dart';
 import 'package:food_calorie_app/theme/app_theme.dart';
+import 'package:food_calorie_app/screens/about/version_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -15,9 +16,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Profile'),
-      ),
       body: Consumer2<AuthProvider, HistoryProvider>(
         builder: (context, authProvider, historyProvider, child) {
           return SingleChildScrollView(
@@ -25,6 +23,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                const SizedBox(height: 16),
                 // Profile Header
                 Card(
                   child: Padding(
@@ -191,11 +190,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 .map((allergy) => Chip(
                                       label: Text(allergy),
                                       deleteIcon: const Icon(Icons.close),
-                                      onDeleted: () {
+                                      onDeleted: () async {
                                         final updated = List<String>.from(
                                             authProvider.allergies);
                                         updated.remove(allergy);
                                         authProvider.updateAllergies(updated);
+                                        // Save to backend
+                                        await authProvider.updateProfile(
+                                            {'allergies': updated});
                                       },
                                     ))
                                 .toList(),
@@ -258,6 +260,25 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     ),
                   ),
                 ),
+                const SizedBox(height: 16),
+
+                // About Button
+                SizedBox(
+                  width: double.infinity,
+                  child: TextButton.icon(
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const VersionScreen(),
+                        ),
+                      );
+                    },
+                    icon: const Icon(Icons.info_outline),
+                    label: const Text('About'),
+                  ),
+                ),
+                const SizedBox(height: 16),
               ],
             ),
           );
@@ -310,6 +331,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
       updated.remove(preference);
     }
     provider.updateDietaryPreferences(updated);
+    // Save to backend
+    provider.updateProfile({'dietary_preferences': updated});
   }
 
   void _showGoalDialog(AuthProvider provider) {
@@ -335,11 +358,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
             child: const Text('Cancel'),
           ),
           ElevatedButton(
-            onPressed: () {
+            onPressed: () async {
               final goal = int.tryParse(controller.text);
               if (goal != null && goal > 0) {
-                provider.updateDailyGoal(goal);
-                Navigator.pop(context);
+                final success = await provider.updateGoals(goal);
+                if (success && mounted) {
+                  Navigator.pop(context);
+                }
               }
             },
             child: const Text('Save'),
@@ -369,15 +394,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
             child: const Text('Cancel'),
           ),
           ElevatedButton(
-            onPressed: () {
+            onPressed: () async {
               final allergy = controller.text.trim();
               if (allergy.isNotEmpty) {
                 final updated = List<String>.from(provider.allergies);
                 if (!updated.contains(allergy)) {
                   updated.add(allergy);
                   provider.updateAllergies(updated);
+                  // Save to backend
+                  await provider.updateProfile({'allergies': updated});
                 }
-                Navigator.pop(context);
+                if (mounted) {
+                  Navigator.pop(context);
+                }
               }
             },
             child: const Text('Add'),

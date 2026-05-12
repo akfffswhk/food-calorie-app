@@ -12,6 +12,7 @@ import 'package:food_calorie_app/screens/suggestions/suggestions_screen.dart';
 import 'package:food_calorie_app/screens/profile/profile_screen.dart';
 import 'package:food_calorie_app/services/api_service.dart';
 import 'package:food_calorie_app/theme/app_theme.dart';
+import 'package:food_calorie_app/widgets/bottom_navigation_bar.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -40,15 +41,99 @@ class FoodCalorieApp extends StatelessWidget {
         theme: AppTheme.lightTheme,
         darkTheme: AppTheme.darkTheme,
         themeMode: ThemeMode.system,
-        initialRoute: '/auth',
-        routes: {
-          '/auth': (context) => const AuthScreen(),
-          '/home': (context) => const HomeScreen(),
-          '/scan': (context) => const ScanScreen(),
-          '/history': (context) => const HistoryScreen(),
-          '/suggestions': (context) => const SuggestionsScreen(),
-          '/profile': (context) => const ProfileScreen(),
-        },
+        home: const AppInitializer(),
+      ),
+    );
+  }
+}
+
+class AppInitializer extends StatefulWidget {
+  const AppInitializer({super.key});
+
+  @override
+  State<AppInitializer> createState() => _AppInitializerState();
+}
+
+class _AppInitializerState extends State<AppInitializer> {
+  bool _isInitialized = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _initializeApp();
+  }
+
+  Future<void> _initializeApp() async {
+    final authProvider = context.read<AuthProvider>();
+    await authProvider.init();
+
+    if (mounted) {
+      setState(() {
+        _isInitialized = true;
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (!_isInitialized) {
+      return const Scaffold(
+        body: Center(
+          child: CircularProgressIndicator(),
+        ),
+      );
+    }
+
+    final authProvider = context.watch<AuthProvider>();
+
+    if (authProvider.isLoggedIn) {
+      return const MainScreen();
+    } else {
+      return const AuthScreen();
+    }
+  }
+}
+
+class MainScreen extends StatefulWidget {
+  const MainScreen({super.key});
+
+  @override
+  State<MainScreen> createState() => _MainScreenState();
+}
+
+class _MainScreenState extends State<MainScreen> {
+  int _currentIndex = 0;
+
+  final List<Widget> _screens = const [
+    HomeScreen(),
+    ScanScreen(),
+    HistoryScreen(),
+    SuggestionsScreen(),
+    ProfileScreen(),
+  ];
+
+  void _onTabTapped(int index) {
+    setState(() {
+      _currentIndex = index;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: IndexedStack(
+        index: _currentIndex,
+        children: [
+          HomeScreen(onScanPressed: () => _onTabTapped(1)),
+          const ScanScreen(),
+          const HistoryScreen(),
+          const SuggestionsScreen(),
+          const ProfileScreen(),
+        ],
+      ),
+      bottomNavigationBar: BottomNavigationBarWidget(
+        currentIndex: _currentIndex,
+        onTap: _onTabTapped,
       ),
     );
   }

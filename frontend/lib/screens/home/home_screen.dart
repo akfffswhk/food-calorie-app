@@ -7,7 +7,9 @@ import 'package:food_calorie_app/widgets/calorie_progress_card.dart';
 import 'package:food_calorie_app/widgets/meal_summary_card.dart';
 
 class HomeScreen extends StatefulWidget {
-  const HomeScreen({super.key});
+  final VoidCallback? onScanPressed;
+
+  const HomeScreen({super.key, this.onScanPressed});
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
@@ -56,7 +58,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 final authProvider = context.watch<AuthProvider>();
                 final goal = authProvider.dailyCalorieGoal;
                 final remaining = goal - totalCalories;
-                final progress = totalCalories / goal;
+                final progress = goal > 0 ? totalCalories / goal : 0.0;
 
                 return Padding(
                   padding: const EdgeInsets.all(16),
@@ -137,7 +139,7 @@ class _HomeScreenState extends State<HomeScreen> {
         ],
       ),
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => Navigator.pushNamed(context, '/scan'),
+        onPressed: widget.onScanPressed,
         icon: const Icon(Icons.camera_alt),
         label: const Text('Scan Food'),
         backgroundColor: AppTheme.primaryColor,
