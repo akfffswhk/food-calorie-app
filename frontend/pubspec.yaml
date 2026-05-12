@@ -1,7 +1,7 @@
 name: food_calorie_app
 description: Food Calorie Analyzer - Track your food calories with AI
 publish_to: 'none'
-version: 1.0.0+1
+version: 1.0.0+3
 
 environment:
   sdk: '>=3.0.0 <4.0.0'
@@ -26,22 +26,22 @@ dependencies:
   # Image Handling
   image_picker: ^1.0.5
   camera: ^0.10.5+5
-  image_cropper: ^5.0.1
+  image_cropper: ^12.2.1
 
   # Storage
   shared_preferences: ^2.2.2
   path_provider: ^2.1.1
 
   # Utils
-  intl: ^0.18.1
+  intl: ^0.20.2
   uuid: ^4.2.1
   logger: ^2.0.2+1
 
   # Charts
-  fl_chart: ^0.66.0
+  fl_chart: ^1.2.0
 
   # Auth
-  flutter_secure_storage: ^9.0.0
+  flutter_secure_storage: ^10.1.0
 
 dev_dependencies:
   flutter_test:

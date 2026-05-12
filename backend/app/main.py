@@ -15,12 +15,25 @@ from app.api import auth as auth_router
 from app.api import history as history_router
 from app.api import suggestions as suggestions_router
 from app.api import profile as profile_router
+from app.database import Database
 
 app = FastAPI(
     title="Food Calorie Analyzer API",
     version="1.0.0",
     description="Food calorie analysis with local AI processing"
 )
+
+
+@app.on_event("startup")
+async def startup_event():
+    """Connect to databases on startup"""
+    await Database.connect()
+
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    """Disconnect from databases on shutdown"""
+    await Database.disconnect()
 
 # Include routers
 app.include_router(auth_router.router)

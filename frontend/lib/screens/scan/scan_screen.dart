@@ -8,6 +8,7 @@ import 'package:food_calorie_app/providers/history_provider.dart';
 import 'package:food_calorie_app/theme/app_theme.dart';
 import 'package:food_calorie_app/widgets/analysis_result_card.dart';
 import 'package:food_calorie_app/widgets/meal_type_selector.dart';
+import 'package:food_calorie_app/models/models.dart';
 
 class ScanScreen extends StatefulWidget {
   const ScanScreen({super.key});
@@ -94,14 +95,12 @@ class _ScanScreenState extends State<ScanScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Scan Food'),
-      ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
+            const SizedBox(height: 16),
             // Image Preview
             Container(
               height: 300,
@@ -198,6 +197,7 @@ class _ScanScreenState extends State<ScanScreen> {
                       style: TextStyle(fontSize: 16),
                     ),
             ),
+            const SizedBox(height: 16),
           ],
         ),
       ),

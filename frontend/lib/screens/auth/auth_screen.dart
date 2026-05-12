@@ -36,12 +36,15 @@ class _AuthScreenState extends State<AuthScreen> {
 
     setState(() => _isLoading = false);
 
-    if (success && mounted) {
-      Navigator.pushReplacementNamed(context, '/home');
-    } else if (mounted) {
+    if (!success && mounted) {
+      final errorMessage = authProvider.errorMessage ?? 'Authentication failed';
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Authentication failed')),
+        SnackBar(
+          content: Text(errorMessage),
+          backgroundColor: AppTheme.errorColor,
+        ),
       );
+      authProvider.clearError();
     }
   }
 

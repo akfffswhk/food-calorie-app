@@ -1,14 +1,23 @@
 import 'package:flutter/material.dart';
 import 'package:food_calorie_app/models/models.dart';
+import 'package:food_calorie_app/services/api_service.dart';
 
 class HistoryProvider with ChangeNotifier {
   List<HistoryEntry> _history = [];
   bool _isLoading = false;
   String? _errorMessage;
+  int _currentPage = 1;
+  int _totalPages = 1;
+  int _totalCount = 0;
+  bool _hasMore = true;
 
   List<HistoryEntry> get history => _history;
   bool get isLoading => _isLoading;
   String? get errorMessage => _errorMessage;
+  int get currentPage => _currentPage;
+  int get totalPages => _totalPages;
+  int get totalCount => _totalCount;
+  bool get hasMore => _hasMore;
 
   int get totalCaloriesToday {
     final now = DateTime.now();
@@ -41,60 +50,40 @@ class HistoryProvider with ChangeNotifier {
     };
   }
 
-  Future<void> loadHistory() async {
+  Future<void> loadHistory({bool refresh = false}) async {
+    if (refresh) {
+      _currentPage = 1;
+      _history.clear();
+      _hasMore = true;
+    }
+
+    if (_isLoading || !_hasMore) return;
+
     _isLoading = true;
     _errorMessage = null;
     notifyListeners();
 
     try {
-      // Simulate API call - replace with actual API
-      await Future.delayed(const Duration(seconds: 1));
+      final response = await ApiService.getHistory(
+        page: _currentPage,
+        limit: 20,
+      );
 
-      // Mock data for now
-      _history = [
-        HistoryEntry(
-          id: '1',
-          createdAt: DateTime.now().subtract(const Duration(hours: 2)),
-          mealType: 'lunch',
-          calories: 450,
-          macros: NutritionData(
-            calories: 450,
-            protein: 25,
-            carbs: 45,
-            fat: 15,
-          ),
-          items: [
-            FoodItem(
-              name: 'Grilled Chicken Salad',
-              confidence: 0.92,
-              portion: '1 bowl',
-              estimatedGrams: 300,
-            ),
-          ],
-          source: 'lm_studio',
-        ),
-        HistoryEntry(
-          id: '2',
-          createdAt: DateTime.now().subtract(const Duration(hours: 5)),
-          mealType: 'breakfast',
-          calories: 320,
-          macros: NutritionData(
-            calories: 320,
-            protein: 18,
-            carbs: 40,
-            fat: 10,
-          ),
-          items: [
-            FoodItem(
-              name: 'Oatmeal with Berries',
-              confidence: 0.88,
-              portion: '1 bowl',
-              estimatedGrams: 250,
-            ),
-          ],
-          source: 'hugging_face',
-        ),
-      ];
+      final entries = (response['entries'] as List?)
+              ?.map((e) => HistoryEntry.fromJson(e as Map<String, dynamic>))
+              .toList() ??
+          [];
+
+      if (refresh) {
+        _history = entries;
+      } else {
+        _history.addAll(entries);
+      }
+
+      _currentPage++;
+      _totalCount = response['total'] as int? ?? _history.length;
+      _totalPages = response['total_pages'] as int? ?? 1;
+      _hasMore = _currentPage <= _totalPages;
 
       _isLoading = false;
       notifyListeners();
@@ -105,18 +94,128 @@ class HistoryProvider with ChangeNotifier {
     }
   }
 
+  Future<void> loadDailyHistory(String date) async {
+    _isLoading = true;
+    _errorMessage = null;
+    notifyListeners();
+
+    try {
+      final response = await ApiService.getDailyHistory(date);
+
+      final entries = (response['entries'] as List?)
+              ?.map((e) => HistoryEntry.fromJson(e as Map<String, dynamic>))
+              .toList() ??
+          [];
+
+      _history = entries;
+      _isLoading = false;
+      notifyListeners();
+    } catch (e) {
+      _errorMessage = e.toString();
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> loadWeeklyHistory() async {
+    _isLoading = true;
+    _errorMessage = null;
+    notifyListeners();
+
+    try {
+      final response = await ApiService.getWeeklyHistory();
+
+      final entries = (response['entries'] as List?)
+              ?.map((e) => HistoryEntry.fromJson(e as Map<String, dynamic>))
+              .toList() ??
+          [];
+
+      _history = entries;
+      _isLoading = false;
+      notifyListeners();
+    } catch (e) {
+      _errorMessage = e.toString();
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> loadMonthlyHistory() async {
+    _isLoading = true;
+    _errorMessage = null;
+    notifyListeners();
+
+    try {
+      final response = await ApiService.getMonthlyHistory();
+
+      final entries = (response['entries'] as List?)
+              ?.map((e) => HistoryEntry.fromJson(e as Map<String, dynamic>))
+              .toList() ??
+          [];
+
+      _history = entries;
+      _isLoading = false;
+      notifyListeners();
+    } catch (e) {
+      _errorMessage = e.toString();
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
+
+  Future<Map<String, dynamic>> loadStats() async {
+    try {
+      final response = await ApiService.getHistoryStats();
+      return response;
+    } catch (e) {
+      _errorMessage = e.toString();
+      notifyListeners();
+      return {};
+    }
+  }
+
   Future<void> addEntry(HistoryEntry entry) async {
     _history.insert(0, entry);
     notifyListeners();
   }
 
   Future<void> deleteEntry(String id) async {
-    _history.removeWhere((entry) => entry.id == id);
+    _isLoading = true;
+    _errorMessage = null;
     notifyListeners();
+
+    try {
+      await ApiService.deleteAnalysis(id);
+      _history.removeWhere((entry) => entry.id == id);
+      _isLoading = false;
+      notifyListeners();
+    } catch (e) {
+      _errorMessage = e.toString();
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
+
+  Future<HistoryEntry?> getAnalysis(String id) async {
+    try {
+      final response = await ApiService.getAnalysis(id);
+      return HistoryEntry.fromJson(response);
+    } catch (e) {
+      _errorMessage = e.toString();
+      notifyListeners();
+      return null;
+    }
   }
 
   void clearHistory() {
     _history.clear();
+    _currentPage = 1;
+    _hasMore = true;
+    notifyListeners();
+  }
+
+  void clearError() {
+    _errorMessage = null;
     notifyListeners();
   }
 }

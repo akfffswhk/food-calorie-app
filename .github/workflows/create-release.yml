@@ -1,0 +1,90 @@
+name: Create Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to release (e.g., 1.0.0)'
+        required: true
+      prerelease:
+        description: 'Is this a pre-release?'
+        required: false
+        default: 'false'
+        type: boolean
+
+jobs:
+  create-release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+
+      - name: Get version info
+        id: version
+        run: |
+          VERSION="${{ github.event.inputs.version }}"
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Build Android APK
+        run: |
+          cd frontend
+          flutter pub get
+          flutter build apk --release
+          mv build/app/outputs/flutter-apk/app-release.apk ../food-calorie-app-$VERSION.apk
+
+      - name: Build iOS (if on macOS)
+        if: runner.os == 'macOS'
+        run: |
+          cd frontend
+          flutter pub get
+          flutter build ios --release
+
+      - name: Generate release notes
+        id: notes
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+
+          # Extract release notes from CHANGELOG
+          if grep -q "## \[$VERSION\]" CHANGELOG.md; then
+            awk "/## \[$VERSION\]/,/^## /" CHANGELOG.md | head -n -1 > release_notes.md
+          else
+            echo "Release version $VERSION" > release_notes.md
+          fi
+
+          echo "notes<<EOF" >> $GITHUB_OUTPUT
+          cat release_notes.md >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Create Git Tag
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          git tag -a "v$VERSION" -m "Release version $VERSION"
+          git push origin "v$VERSION"
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: v${{ steps.version.outputs.version }}
+          name: Food Calorie App v${{ steps.version.outputs.version }}
+          body: ${{ steps.notes.outputs.notes }}
+          draft: false
+          prerelease: ${{ github.event.inputs.prerelease == 'true' }}
+          files: |
+            food-calorie-app-${{ steps.version.outputs.version }}.apk
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Notify release created
+        run: |
+          echo "Release v${{ steps.version.outputs.version }} created successfully!"
+          echo "APK: food-calorie-app-${{ steps.version.outputs.version }}.apk"

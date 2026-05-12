@@ -240,6 +240,103 @@ async def get_monthly_history(
     return list(daily_data.values())
 
 
+@router.get("/stats", response_model=StatsResponse)
+async def get_stats(current_user: dict = Depends(get_current_user)):
+    """
+    Get user statistics
+
+    Returns daily goal, streak, today's progress, weekly average, and top foods
+    """
+    analyses_collection = get_analyses_collection()
+    user_id = ObjectId(current_user["user_id"])
+
+    # Get today's summary
+    today = datetime.utcnow()
+    start_of_day = datetime(today.year, today.month, today.day)
+    end_of_day = start_of_day + timedelta(days=1)
+
+    cursor = analyses_collection.find({
+        "user_id": user_id,
+        "created_at": {"$gte": start_of_day, "$lt": end_of_day}
+    })
+
+    today_calories = 0
+    async for doc in cursor:
+        today_calories += doc.get("calories", 0)
+
+    # Get weekly average
+    start_of_week = today - timedelta(days=7)
+    cursor = analyses_collection.find({
+        "user_id": user_id,
+        "created_at": {"$gte": start_of_week, "$lt": today}
+    })
+
+    weekly_total = 0
+    weekly_count = 0
+    async for doc in cursor:
+        weekly_total += doc.get("calories", 0)
+        weekly_count += 1
+
+    weekly_avg = weekly_total / weekly_count if weekly_count > 0 else 0
+
+    # Get most analyzed foods
+    cursor = analyses_collection.aggregate([
+        {"$match": {"user_id": user_id}},
+        {"$unwind": "$items"},
+        {"$group": {
+            "_id": "$items.name",
+            "count": {"$sum": 1},
+            "total_calories": {"$sum": "$calories"}
+        }},
+        {"$sort": {"count": -1}},
+        {"$limit": 5}
+    ])
+
+    top_foods = []
+    async for doc in cursor:
+        top_foods.append({
+            "name": doc["_id"],
+            "count": doc["count"],
+            "total_calories": doc["total_calories"]
+        })
+
+    # Calculate streak
+    streak = 0
+    current_date = today
+    daily_goal = 2000  # Default, should come from user profile
+
+    while True:
+        start = datetime(current_date.year, current_date.month, current_date.day)
+        end = start + timedelta(days=1)
+
+        cursor = analyses_collection.find({
+            "user_id": user_id,
+            "created_at": {"$gte": start, "$lt": end}
+        })
+
+        total = 0
+        async for doc in cursor:
+            total += doc.get("calories", 0)
+
+        if total > 0 and total <= daily_goal:
+            streak += 1
+            current_date -= timedelta(days=1)
+        else:
+            break
+
+    return StatsResponse(
+        daily_goal=daily_goal,
+        streak_days=streak,
+        today={
+            "calories": today_calories,
+            "goal_met": today_calories <= daily_goal,
+            "remaining": max(0, daily_goal - today_calories)
+        },
+        weekly_average=int(weekly_avg),
+        top_foods=top_foods
+    )
+
+
 @router.get("/{analysis_id}", response_model=HistoryEntryResponse)
 async def get_analysis(
     analysis_id: str,
@@ -304,100 +401,3 @@ async def delete_analysis(
         )
 
     return {"message": "Analysis deleted successfully"}
-
-
-@router.get("/stats", response_model=StatsResponse)
-async def get_stats(current_user: dict = Depends(get_current_user)):
-    """
-    Get user statistics
-
-    Returns daily goal, streak, today's progress, weekly average, and top foods
-    """
-    analyses_collection = get_analyses_collection()
-    user_id = ObjectId(current_user["user_id"])
-
-    # Get today's summary
-    today = datetime.utcnow()
-    start_of_day = datetime(today.year, today.month, today.day)
-    end_of_day = start_of_day + timedelta(days=1)
-
-    cursor = analyses_collection.find({
-        "user_id": user_id,
-        "created_at": {"$gte": start_of_day, "<lt": end_of_day}
-    })
-
-    today_calories = 0
-    async for doc in cursor:
-        today_calories += doc.get("calories", 0)
-
-    # Get weekly average
-    start_of_week = today - timedelta(days=7)
-    cursor = analyses_collection.find({
-        "user_id": user_id,
-        "created_at": {"$gte": start_of_week, "<lt": today}
-    })
-
-    weekly_total = 0
-    weekly_count = 0
-    async for doc in cursor:
-        weekly_total += doc.get("calories", 0)
-        weekly_count += 1
-
-    weekly_avg = weekly_total / weekly_count if weekly_count > 0 else 0
-
-    # Get most analyzed foods
-    cursor = analyses_collection.aggregate([
-        {"$match": {"user_id": user_id}},
-        {"$unwind": "$items"},
-        {"$group": {
-            "_id": "$items.name",
-            "count": {"$sum": 1},
-            "total_calories": {"$sum": "$calories"}
-        }},
-        {"$sort": {"count": -1}},
-        {"$limit": 5}
-    ])
-
-    top_foods = []
-    async for doc in cursor:
-        top_foods.append({
-            "name": doc["_id"],
-            "count": doc["count"],
-            "total_calories": doc["total_calories"]
-        })
-
-    # Calculate streak
-    streak = 0
-    current_date = today
-    daily_goal = 2000  # Default, should come from user profile
-
-    while True:
-        start = datetime(current_date.year, current_date.month, current_date.day)
-        end = start + timedelta(days=1)
-
-        cursor = analyses_collection.find({
-            "user_id": user_id,
-            "created_at": {"$gte": start, "<lt": end}
-        })
-
-        total = 0
-        async for doc in cursor:
-            total += doc.get("calories", 0)
-
-        if total > 0 and total <= daily_goal:
-            streak += 1
-            current_date -= timedelta(days=1)
-        else:
-            break
-
-    return StatsResponse(
-        daily_goal=daily_goal,
-        streak_days=streak,
-        today={
-            "calories": today_calories,
-            "goal_met": today_calories <= daily_goal,
-            "remaining": max(0, daily_goal - today_calories)
-        },
-        weekly_average=int(weekly_avg),
-        top_foods=top_foods
-    )
