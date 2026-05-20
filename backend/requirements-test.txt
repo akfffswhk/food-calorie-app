@@ -1,0 +1,20 @@
+# Test dependencies for Food Calorie App API
+
+# Testing framework
+pytest>=7.4.0
+pytest-asyncio>=0.21.0
+pytest-cov>=4.1.0
+
+# HTTP client for testing
+httpx>=0.25.0
+
+# Image processing for test data
+Pillow>=10.0.0
+
+# Async support
+asyncio>=3.4.3
+
+# Code quality
+black>=23.0.0
+flake8>=6.0.0
+mypy>=1.5.0

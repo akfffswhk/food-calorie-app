@@ -190,7 +190,7 @@ perf: optimize image loading
 ## CHANGELOG.md Format
 
 ```markdown
-## [1.0.0] - 2026-05-11
+## [1.0.0] - 2026-05-13
 
 ### Added
 - New feature 1

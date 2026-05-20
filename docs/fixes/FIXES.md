@@ -217,3 +217,22 @@ All services are now running:
 2. The frontend no longer expects refresh tokens from the backend
 3. All notifyListeners() calls during initialization have been removed to prevent build-phase errors
 4. The database connection is now established on application startup
+
+---
+
+## API Integration Fixes
+
+### 1. Auth Refresh Endpoint Issue
+**Problem**: The `/api/auth/refresh` endpoint required authentication, which defeated its purpose of refreshing expired tokens.
+
+**Fix**: Modified the endpoint to accept a `refresh_token` in the request body instead of requiring authentication.
+
+### 2. History Stats Endpoint Route Ordering
+**Problem**: The `/api/history/stats` endpoint was defined after the `/{analysis_id}` endpoint, causing FastAPI to match `stats` as an analysis ID instead of the stats endpoint.
+
+**Fix**: Moved the `/api/history/stats` endpoint definition before the `/{analysis_id}` endpoint.
+
+### 3. MongoDB Query Typos
+**Problem**: Multiple MongoDB queries used `"<lt"` instead of `"$lt"` for the less-than operator.
+
+**Fix**: Corrected all instances of `"<lt"` to `"$lt"` in MongoDB queries in `backend/app/api/history.py`.

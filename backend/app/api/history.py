@@ -56,6 +56,53 @@ class StatsResponse(BaseModel):
     top_foods: List[dict]
 
 
+class SaveAnalysisRequest(BaseModel):
+    meal_type: str
+    calories: int
+    macros: MacrosModel
+    items: List[FoodItemModel]
+    source: str
+
+
+@router.post("", response_model=HistoryEntryResponse)
+async def save_analysis(
+    analysis: SaveAnalysisRequest,
+    current_user: dict = Depends(get_current_user)
+):
+    """
+    Save a new analysis to history
+
+    - **meal_type**: Type of meal (breakfast, lunch, dinner, snack)
+    - **calories**: Total calories
+    - **macros**: Nutrition breakdown
+    - **items**: List of detected food items
+    - **source**: Analysis source (AI service used)
+    """
+    analyses_collection = get_analyses_collection()
+    user_id = ObjectId(current_user["user_id"])
+
+    # Create new analysis document
+    new_analysis = {
+        "user_id": user_id,
+        "created_at": datetime.utcnow(),
+        "meal_type": analysis.meal_type,
+        "calories": analysis.calories,
+        "macros": analysis.macros.dict(),
+        "items": [item.dict() for item in analysis.items],
+        "source": analysis.source
+    }
+
+    # Insert into database
+    result = await analyses_collection.insert_one(new_analysis)
+
+    # Return the created analysis
+    new_analysis["id"] = str(result.inserted_id)
+    del new_analysis["_id"]
+    del new_analysis["user_id"]
+
+    return HistoryEntryResponse(**new_analysis)
+
+
 @router.get("", response_model=List[HistoryEntryResponse])
 async def get_history(
     limit: int = Query(50, ge=1, le=100),

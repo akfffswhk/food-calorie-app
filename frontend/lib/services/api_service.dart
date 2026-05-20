@@ -2,7 +2,6 @@ import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'dart:io' show Platform;
 
 class ApiService {
   static late Dio _dio;
@@ -174,7 +173,24 @@ class ApiService {
         } else if (statusCode == 500) {
           message = 'Server error. Please try again later.';
         } else {
-          message = error.response?.data['message'] ?? 'Request failed.';
+          final data = error.response?.data;
+          if (data is Map<String, dynamic>) {
+            final detail = data['detail'];
+            if (detail is String) {
+              message = detail;
+            } else if (detail is List && detail.isNotEmpty) {
+              final firstError = detail.first;
+              if (firstError is Map && firstError['msg'] != null) {
+                message = firstError['msg'].toString();
+              } else {
+                message = detail.toString();
+              }
+            } else {
+              message = data['message'] ?? 'Request failed.';
+            }
+          } else {
+            message = 'Request failed.';
+          }
         }
         break;
       case DioExceptionType.cancel:
@@ -216,6 +232,8 @@ class ApiService {
       post('/api/analyze/base64', data: {'image': base64Image});
 
   // History Endpoints
+  static Future<Map<String, dynamic>> saveAnalysis(Map<String, dynamic> data) =>
+      post('/api/history', data: data);
   static Future<Map<String, dynamic>> getHistory({int page = 1, int limit = 20}) =>
       get('/api/history?page=$page&limit=$limit');
   static Future<Map<String, dynamic>> getDailyHistory(String date) =>

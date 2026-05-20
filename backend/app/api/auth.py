@@ -84,7 +84,6 @@ async def register(user_data: UserRegisterRequest):
     user_document = {
         "email": user_data.email,
         "password_hash": get_password_hash(user_data.password),
-        "username": user_data.username,
         "daily_calorie_goal": 2000,
         "dietary_preferences": [],
         "allergies": [],
@@ -92,6 +91,9 @@ async def register(user_data: UserRegisterRequest):
         "updated_at": datetime.utcnow(),
         "is_active": True
     }
+
+    if user_data.username is not None:
+        user_document["username"] = user_data.username
 
     result = await users_collection.insert_one(user_document)
     user_id = str(result.inserted_id)

@@ -2,12 +2,17 @@
 FastAPI endpoint for food analysis with authentication
 """
 
+import os
 from fastapi import FastAPI, UploadFile, File, HTTPException, Depends, status
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import Optional, List
 import io
 from PIL import Image
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
 
 from app.services.ai_service import get_ai_service, AnalysisResult, FoodItem, NutritionData
 from app.auth import get_current_user, get_optional_user
@@ -21,6 +26,36 @@ app = FastAPI(
     title="Food Calorie Analyzer API",
     version="1.0.0",
     description="Food calorie analysis with local AI processing"
+)
+
+# CORS middleware - MUST be added before including routers
+# For development with Flutter web (which uses random ports), allow all localhost
+# Generate list of common localhost ports for development
+localhost_ports = [3000, 5000, 8000, 8080, 8081, 8082, 9000, 9090]
+allow_origins = []
+
+# Add http and https versions for both localhost and 127.0.0.1
+for port in localhost_ports:
+    allow_origins.extend([
+        f"http://localhost:{port}",
+        f"http://127.0.0.1:{port}",
+        f"https://localhost:{port}",
+        f"https://127.0.0.1:{port}",
+    ])
+
+# For development: Allow all origins if ENV variable is set
+if os.getenv("DEVELOPMENT_MODE", "true").lower() == "true":
+    allow_origins = ["*"]
+    allow_credentials = False
+else:
+    allow_credentials = True
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=allow_origins,
+    allow_credentials=allow_credentials,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 
@@ -40,15 +75,6 @@ app.include_router(auth_router.router)
 app.include_router(history_router.router)
 app.include_router(suggestions_router.router)
 app.include_router(profile_router.router)
-
-# CORS middleware
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
 
 
 # Response models

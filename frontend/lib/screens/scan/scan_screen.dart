@@ -5,6 +5,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 import 'package:food_calorie_app/providers/analysis_provider.dart';
 import 'package:food_calorie_app/providers/history_provider.dart';
+import 'package:food_calorie_app/services/api_service.dart';
 import 'package:food_calorie_app/theme/app_theme.dart';
 import 'package:food_calorie_app/widgets/analysis_result_card.dart';
 import 'package:food_calorie_app/widgets/meal_type_selector.dart';
@@ -53,19 +54,21 @@ class _ScanScreenState extends State<ScanScreen> {
       final success = await analysisProvider.analyzeImageBase64(base64Image);
 
       if (success && analysisProvider.currentResult != null) {
-        // Add to history
+        // Save to backend
         final result = analysisProvider.currentResult!;
-        await historyProvider.addEntry(
-          HistoryEntry(
-            id: DateTime.now().millisecondsSinceEpoch.toString(),
-            createdAt: DateTime.now(),
-            mealType: _mealType,
-            calories: result.nutrition.calories,
-            macros: result.nutrition,
-            items: result.items,
-            source: result.source,
-          ),
-        );
+        final saveData = {
+          'meal_type': _mealType,
+          'calories': result.nutrition.calories,
+          'macros': result.nutrition.toJson(),
+          'items': result.items.map((item) => item.toJson()).toList(),
+          'source': result.source,
+        };
+
+        final savedResponse = await ApiService.saveAnalysis(saveData);
+
+        // Add to local history
+        final savedEntry = HistoryEntry.fromJson(savedResponse);
+        await historyProvider.addEntry(savedEntry);
 
         if (mounted) {
           // Show result
@@ -75,7 +78,10 @@ class _ScanScreenState extends State<ScanScreen> {
               result: result,
               onSave: () {
                 Navigator.pop(context);
-                Navigator.pop(context);
+                // Clear the selected image
+                setState(() {
+                  _selectedImage = null;
+                });
               },
             ),
           );
@@ -84,7 +90,10 @@ class _ScanScreenState extends State<ScanScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Analysis failed: $e')),
+          SnackBar(
+            content: Text('Analysis failed: $e'),
+            backgroundColor: Colors.red,
+          ),
         );
       }
     } finally {
@@ -101,20 +110,66 @@ class _ScanScreenState extends State<ScanScreen> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             const SizedBox(height: 16),
+            // Header
+            Text(
+              'Scan Food',
+              style: AppTheme.heading1,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Take a photo or select from gallery to analyze calories',
+              style: AppTheme.bodyLarge.copyWith(
+                color: Colors.grey[600],
+              ),
+            ),
+            const SizedBox(height: 24),
+
             // Image Preview
             Container(
               height: 300,
               decoration: BoxDecoration(
                 color: Colors.grey[200],
                 borderRadius: BorderRadius.circular(16),
+                border: Border.all(
+                  color: Colors.grey[300]!,
+                  width: 2,
+                ),
               ),
               child: _selectedImage != null
-                  ? ClipRRect(
-                      borderRadius: BorderRadius.circular(16),
-                      child: Image.file(
-                        _selectedImage!,
-                        fit: BoxFit.cover,
-                      ),
+                  ? Stack(
+                      children: [
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(14),
+                          child: Image.file(
+                            _selectedImage!,
+                            fit: BoxFit.cover,
+                            width: double.infinity,
+                            height: double.infinity,
+                          ),
+                        ),
+                        // Remove button
+                        Positioned(
+                          top: 8,
+                          right: 8,
+                          child: Container(
+                            decoration: BoxDecoration(
+                              color: Colors.black54,
+                              shape: BoxShape.circle,
+                            ),
+                            child: IconButton(
+                              icon: const Icon(
+                                Icons.close,
+                                color: Colors.white,
+                              ),
+                              onPressed: () {
+                                setState(() {
+                                  _selectedImage = null;
+                                });
+                              },
+                            ),
+                          ),
+                        ),
+                      ],
                     )
                   : Center(
                       child: Column(
@@ -133,6 +188,14 @@ class _ScanScreenState extends State<ScanScreen> {
                               fontSize: 16,
                             ),
                           ),
+                          const SizedBox(height: 8),
+                          Text(
+                            'Tap Camera or Gallery below',
+                            style: TextStyle(
+                              color: Colors.grey[500],
+                              fontSize: 14,
+                            ),
+                          ),
                         ],
                       ),
                     ),
@@ -149,6 +212,7 @@ class _ScanScreenState extends State<ScanScreen> {
                     label: const Text('Camera'),
                     style: ElevatedButton.styleFrom(
                       padding: const EdgeInsets.symmetric(vertical: 16),
+                      backgroundColor: AppTheme.primaryColor,
                     ),
                   ),
                 ),
@@ -168,6 +232,11 @@ class _ScanScreenState extends State<ScanScreen> {
             const SizedBox(height: 24),
 
             // Meal Type Selector
+            const Text(
+              'Meal Type',
+              style: AppTheme.heading3,
+            ),
+            const SizedBox(height: 12),
             MealTypeSelector(
               selectedType: _mealType,
               onTypeChanged: (type) => setState(() => _mealType = type),
@@ -182,15 +251,26 @@ class _ScanScreenState extends State<ScanScreen> {
               style: ElevatedButton.styleFrom(
                 padding: const EdgeInsets.symmetric(vertical: 16),
                 backgroundColor: AppTheme.primaryColor,
+                disabledBackgroundColor: Colors.grey[300],
               ),
               child: _isAnalyzing
-                  ? const SizedBox(
-                      height: 20,
-                      width: 20,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: Colors.white,
-                      ),
+                  ? const Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        SizedBox(
+                          height: 20,
+                          width: 20,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
+                        ),
+                        SizedBox(width: 12),
+                        Text(
+                          'Analyzing...',
+                          style: TextStyle(fontSize: 16),
+                        ),
+                      ],
                     )
                   : const Text(
                       'Analyze Food',
@@ -198,6 +278,38 @@ class _ScanScreenState extends State<ScanScreen> {
                     ),
             ),
             const SizedBox(height: 16),
+
+            // Tips
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.blue[50],
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(
+                  color: Colors.blue[200]!,
+                  width: 1,
+                ),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.lightbulb_outline,
+                    color: Colors.blue[700],
+                    size: 20,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Tip: For best results, use well-lit photos with clear food items',
+                      style: TextStyle(
+                        color: Colors.blue[700],
+                        fontSize: 12,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
           ],
         ),
       ),

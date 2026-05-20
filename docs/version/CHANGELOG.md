@@ -16,7 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - History stats endpoint route ordering fixed
 - MongoDB query typos corrected ("<lt" to "$lt")
 
-## [1.0.0+3] - 2026-05-11
+## [1.0.0+3] - 2026-05-13
 
 ### Changed
 - Bumped build number to 3
@@ -28,7 +28,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Bumped build number to 2
 - Updated implementation status with food analysis testing completion
 
-## [1.0.0+1] - 2026-05-11
+## [1.0.0+1] - 2026-05-13
 
 ### Added
 - Initial release of Food Calorie App

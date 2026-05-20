@@ -5,7 +5,7 @@
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.100+-009688?logo=fastapi)](https://fastapi.tiangolo.com)
 [![MongoDB](https://img.shields.io/badge/MongoDB-5.0+-47A248?logo=mongodb)](https://www.mongodb.com)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-[![Version](https://img.shields.io/badge/version-1.0.0-blue)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-1.0.0%2B3-blue)](docs/version/CHANGELOG.md)
 
 A cross-platform mobile application that uses AI to analyze food images and provide instant calorie and nutrition information. Track your daily intake, view meal history, get personalized suggestions, and manage your dietary goals.
 

@@ -46,11 +46,21 @@ class AnalysisResultCard extends StatelessWidget {
                       ),
                     ),
                   ),
-                  Text(
-                    '${(result.confidence * 100).toInt()}%',
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.2),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(
+                      '${(result.confidence * 100).toInt()}%',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                   ),
                 ],
@@ -65,10 +75,14 @@ class AnalysisResultCard extends StatelessWidget {
                 children: [
                   // Calories
                   Container(
-                    padding: const EdgeInsets.all(16),
+                    padding: const EdgeInsets.all(20),
                     decoration: BoxDecoration(
                       color: AppTheme.primaryColor.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(
+                        color: AppTheme.primaryColor.withOpacity(0.3),
+                        width: 2,
+                      ),
                     ),
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.center,
@@ -76,13 +90,14 @@ class AnalysisResultCard extends StatelessWidget {
                         Icon(
                           Icons.local_fire_department,
                           color: AppTheme.primaryColor,
-                          size: 32,
+                          size: 40,
                         ),
-                        const SizedBox(width: 8),
+                        const SizedBox(width: 12),
                         Text(
                           '${result.nutrition.calories}',
                           style: AppTheme.heading1.copyWith(
                             color: AppTheme.primaryColor,
+                            fontSize: 36,
                           ),
                         ),
                         const SizedBox(width: 4),
@@ -95,14 +110,14 @@ class AnalysisResultCard extends StatelessWidget {
                       ],
                     ),
                   ),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 20),
 
                   // Macros
                   const Text(
-                    'Nutrition',
+                    'Nutrition Breakdown',
                     style: AppTheme.heading3,
                   ),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: 12),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceAround,
                     children: [
@@ -123,36 +138,59 @@ class AnalysisResultCard extends StatelessWidget {
                       ),
                     ],
                   ),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 20),
 
                   // Detected Items
                   const Text(
                     'Detected Items',
                     style: AppTheme.heading3,
                   ),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: 12),
                   ...result.items.map((item) {
                     return Card(
                       margin: const EdgeInsets.only(bottom: 8),
+                      elevation: 2,
                       child: ListTile(
                         dense: true,
-                        leading: const Icon(
-                          Icons.restaurant,
-                          color: AppTheme.primaryColor,
+                        leading: Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: AppTheme.primaryColor.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Icon(
+                            Icons.restaurant,
+                            color: AppTheme.primaryColor,
+                            size: 20,
+                          ),
                         ),
-                        title: Text(item.name),
+                        title: Text(
+                          item.name,
+                          style: const TextStyle(fontWeight: FontWeight.w500),
+                        ),
                         subtitle: Text(item.portion),
-                        trailing: Text(
-                          '${(item.confidence * 100).toInt()}%',
-                          style: TextStyle(
-                            color: Colors.grey[600],
-                            fontSize: 12,
+                        trailing: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 4,
+                          ),
+                          decoration: BoxDecoration(
+                            color: _getConfidenceColor(item.confidence),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Text(
+                            '${(item.confidence * 100).toInt()}%',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
                         ),
                       ),
                     );
                   }).toList(),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 20),
 
                   // Source Info
                   Container(
@@ -193,6 +231,9 @@ class AnalysisResultCard extends StatelessWidget {
                   Expanded(
                     child: OutlinedButton(
                       onPressed: () => Navigator.pop(context),
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                      ),
                       child: const Text('Discard'),
                     ),
                   ),
@@ -202,8 +243,9 @@ class AnalysisResultCard extends StatelessWidget {
                       onPressed: onSave,
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppTheme.primaryColor,
+                        padding: const EdgeInsets.symmetric(vertical: 16),
                       ),
-                      child: const Text('Save'),
+                      child: const Text('Save to History'),
                     ),
                   ),
                 ],
@@ -213,6 +255,12 @@ class AnalysisResultCard extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  Color _getConfidenceColor(double confidence) {
+    if (confidence >= 0.8) return Colors.green;
+    if (confidence >= 0.6) return Colors.orange;
+    return Colors.red;
   }
 
   Widget _buildMacroChip(String label, String value, Color color) {

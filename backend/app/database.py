@@ -61,24 +61,30 @@ class Database:
     @classmethod
     async def _create_indexes(cls):
         """Create database indexes"""
-        # Users database indexes
-        await cls.users_database.users.create_index("email", unique=True)
-        await cls.users_database.users.create_index("username", unique=True, sparse=True)
-        await cls.users_database.users.create_index("created_at")
+        try:
+            # Users database indexes
+            await cls.users_database.users.create_index("email", unique=True)
+            await cls.users_database.users.create_index("username", unique=True, sparse=True)
+            await cls.users_database.users.create_index("created_at")
+        except Exception as e:
+            print(f"Warning: Could not create users indexes: {e}")
 
-        # Records database indexes
-        await cls.records_database.analyses.create_index([("user_id", 1), ("created_at", -1)])
-        await cls.records_database.analyses.create_index([("user_id", 1), ("date", 1)])
-        await cls.records_database.analyses.create_index("created_at")
+        try:
+            # Records database indexes
+            await cls.records_database.analyses.create_index([("user_id", 1), ("created_at", -1)])
+            await cls.records_database.analyses.create_index([("user_id", 1), ("date", 1)])
+            await cls.records_database.analyses.create_index("created_at")
 
-        await cls.records_database.suggestions.create_index([("user_id", 1), ("type", 1)])
-        await cls.records_database.suggestions.create_index("created_at")
+            await cls.records_database.suggestions.create_index([("user_id", 1), ("type", 1)])
+            await cls.records_database.suggestions.create_index("created_at")
 
-        await cls.records_database.daily_summaries.create_index(
-            [("user_id", 1), ("date", 1)],
-            unique=True
-        )
-        await cls.records_database.daily_summaries.create_index("date")
+            await cls.records_database.daily_summaries.create_index(
+                [("user_id", 1), ("date", 1)],
+                unique=True
+            )
+            await cls.records_database.daily_summaries.create_index("date")
+        except Exception as e:
+            print(f"Warning: Could not create records indexes: {e}")
 
     @classmethod
     def get_users_db(cls):
