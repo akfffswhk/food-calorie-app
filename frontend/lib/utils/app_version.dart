@@ -4,10 +4,10 @@
 /// Update this file when releasing new versions.
 class AppVersion {
   /// Current app version
-  static const String version = '1.0.0';
+  static const String version = '1.0.0+4';
 
   /// Build number (increment with each build)
-  static const int buildNumber = 3;
+  static const int buildNumber = ;
 
   /// Full version string with build number
   static String get fullVersion => '$version+$buildNumber';
